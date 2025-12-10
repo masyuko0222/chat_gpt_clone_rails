@@ -4,12 +4,16 @@ import DOMPurify from "dompurify";
 
 // Connects to data-controller="chat"
 export default class extends Controller {
-  static targets = ["prompt", "conversation", "scroll"]
+  static targets = ["prompt", "conversation", "scroll", "greeting"]
   connect() {
   }
 
   generateResponse(event) {
     event.preventDefault();
+
+    if (this.hasGreetingTarget) {
+      this.greetingTarget.remove();
+    }
 
     this.#appendMessage("user", this.promptTarget.value);
 
