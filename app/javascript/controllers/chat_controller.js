@@ -9,19 +9,68 @@ export default class extends Controller {
   generateResponse(event) {
     event.preventDefault();
 
-    // add user's message element
-    const userMessage = document.createElement("div");
-    userMessage.textContent = this.promptTarget.value;
-    this.conversationTarget.appendChild(userMessage);
-    console.log(userMessage);
+    this.#appendMessage("user", this.promptTarget.value);
 
-    // add assistant's response element
-    const assistantMessage = document.createElement("div");
-    this.assistantMessage = assistantMessage;
-    this.conversationTarget.appendChild(assistantMessage);
+    this.assistantMessage = this.#appendMessage("assistant", "");
 
-    this.assistantMessage.innerHTML = "こんにちは。アシスタントAIです。";
+    this.#streamAssistantResponse();
 
     this.promptTarget.value = "";
+  }
+
+  #appendMessage(role, content="") {
+    const template = document.getElementById("chat-message");
+    const clone = template.content.cloneNode(true);
+    clone.firstElementChild.setAttribute("data-role", role)
+    const message = clone.querySelector(".message");
+    message.innerHTML = content;
+    this.conversationTarget.appendChild(clone);
+
+    return message;
+  }
+
+  async #streamAssistantResponse() {
+    const prompt = this.promptTarget.value;
+    const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content");
+
+    const response = await fetch("/chats", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRF-Token": csrfToken,
+        "Accept": "text/event-stream",
+      },
+      body: JSON.stringify({ prompt })
+    });
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+
+    while (true) {
+      const { done, value } = await reader.read();
+
+      if (done) {
+        break
+      }
+      if (!value) {
+        continue
+      }
+
+      const lines = decoder.decode(value).split("\n");
+      console.log(lines);
+
+      for (const line of lines) {
+        if (line.startsWith("data: ")) {
+          const raw = line.slice(6).trim();
+
+          try {
+            const pasedData = JSON.parse(raw);
+            this.assistantMessage.innerHTML += pasedData.message;
+          } catch (error) {
+            console.log("Raw data", raw);
+          }
+        }
+      }
+    }
   }
 }
