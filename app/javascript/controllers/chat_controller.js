@@ -33,6 +33,21 @@ export default class extends Controller {
     const prompt = this.promptTarget.value;
     const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content");
 
+    const response = await this.#requestStream(prompt, csrfToken);
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+
+    while (true) {
+      const { done, value } = await reader.read();
+
+      if (done) break;
+      if (!value) continue;
+
+      this.#addAssistantMessage(value, decoder);
+    }
+  }
+
+  async #requestStream(prompt, csrfToken) {
     const response = await fetch("/chats", {
       method: "POST",
       headers: {
@@ -40,35 +55,23 @@ export default class extends Controller {
         "X-CSRF-Token": csrfToken,
         "Accept": "text/event-stream",
       },
-      body: JSON.stringify({ prompt })
+      body: JSON.stringify({ prompt })  
     });
 
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
+    return response;
+  }
 
-    while (true) {
-      const { done, value } = await reader.read();
+  #addAssistantMessage(chunk, decoder) {
+    const lines = decoder.decode(chunk).split("\n");
+    for (const line of lines) {
+      if (line.startsWith("data: ")) {
+        const raw = line.slice(6).trim();
 
-      if (done) {
-        break
-      }
-      if (!value) {
-        continue
-      }
-
-      const lines = decoder.decode(value).split("\n");
-      console.log(lines);
-
-      for (const line of lines) {
-        if (line.startsWith("data: ")) {
-          const raw = line.slice(6).trim();
-
-          try {
-            const pasedData = JSON.parse(raw);
-            this.assistantMessage.innerHTML += pasedData.message;
-          } catch (error) {
-            console.log("Raw data", raw);
-          }
+        try {
+          const pasedData = JSON.parse(raw);
+          this.assistantMessage.innerHTML += pasedData.message;
+        } catch (error) {
+          console.log("Raw data", raw);
         }
       }
     }
