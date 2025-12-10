@@ -1,4 +1,6 @@
 import { Controller } from "@hotwired/stimulus"
+import { marked } from "marked";
+import DOMPurify from "dompurify";
 
 // Connects to data-controller="chat"
 export default class extends Controller {
@@ -37,6 +39,8 @@ export default class extends Controller {
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
 
+    this.rawContent = "";
+
     while (true) {
       const { done, value } = await reader.read();
 
@@ -68,8 +72,9 @@ export default class extends Controller {
         const raw = line.slice(6).trim();
 
         try {
-          const pasedData = JSON.parse(raw);
-          this.assistantMessage.innerHTML += pasedData.message;
+          const { message } = JSON.parse(raw);
+          this.rawContent += message;
+          this.assistantMessage.innerHTML = DOMPurify.sanitize(marked.parse(this.rawContent));
         } catch (error) {
           console.log("Raw data", raw);
         }
