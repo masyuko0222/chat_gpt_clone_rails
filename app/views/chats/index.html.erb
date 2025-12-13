@@ -3,6 +3,7 @@
   data-controller="chat"
 >
   <div class="flex flex-col min-w-0 h-dvh bg-background">
+    <%= render "shared/chat_header" %>
     <div class="flex flex-col min-w-0 gap-6 flex-1 overflow-y-scroll pt-4">
       <% if (@messages || []).empty? %>
         <div data-chat-target="greeting" class="max-w-3xl mx-auto flex flex-1 items-center min-h-[60vh]">
