@@ -3,6 +3,12 @@ class ChatsController < ApplicationController
   def index
   end
 
+  def show
+    @chat = Current.session.user.chats.find_by!(uuid: params[:uuid])
+
+    render template: "chats/index"
+  end
+
   def create
     set_streaming_headers
     sse = SSE.new(response.stream, event: "message")
@@ -13,14 +19,16 @@ class ChatsController < ApplicationController
 
     begin
       content = stream_chat_response(client, sse)
-      Chat.create!(
-        user: Current.session.user,
-        uuid: SecureRandom.uuid,
-        messages: [
-          Message.new(role: :user, content: params[:prompt]),
-          Message.new(role: :assistant, content: content)
-        ]
-      )
+      chat = Chat.find_or_initialize_by(uuid: params[:uuid]) do |chat|
+        chat.user = Current.session.user
+      end
+
+      if chat.user != Current.session.user
+        raise "User mismatch"
+      end
+      chat.messages.build(role: :user, content: params[:prompt])
+      chat.messages.build(role: :assistant, content: content)
+      chat.save!
     rescue ActiveRecord::RecordInvalid => e
       Rails.logger.error("Failed to create chat: #{e.message}")
     ensure
