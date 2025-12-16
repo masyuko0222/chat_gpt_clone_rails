@@ -1,0 +1,3 @@
+<%= turbo_stream.prepend "chat_links" do %>
+  <%= render partial: "chats/link", locals: { chat: @chat } %>
+<% end %>
