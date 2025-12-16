@@ -33,7 +33,13 @@
                     group-data-[role=user]/message:py-2 \
                     group-data-[role=user]/message:rounded-xl"
                 >
-                  <%= message.content %>
+                  <% if message.role == "assistant" %>
+                    <div data-controller="markdown">
+                      <%= message.content %>
+                    </div>
+                  <% else %>
+                    <%= message.content %>
+                  <% end %>
                 </div>
               </div>
             </div>
