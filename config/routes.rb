@@ -4,8 +4,6 @@ Rails.application.routes.draw do
   resource :registration, only: [ :new, :create ]
   resource :session
   resources :passwords, param: :token
-  get "chats/index"
-  get "up" => "rails/health#show", as: :rails_health_check
   root "chats#index"
-  resources :chats, only: [ :index, :create ]
+  resources :chats, only: [ :index, :create, :show ], param: :uuid
 end

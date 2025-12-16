@@ -39,7 +39,17 @@ export default class extends Controller {
     const prompt = this.promptTarget.value;
     const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content");
 
-    const response = await this.#requestStream(prompt, csrfToken);
+    let body = { prompt }
+    if (window.location.pathname === "/" || window.location.pathname === "/chats/") {
+      const uuid = crypto.randomUUID();
+      window.history.replaceState({}, "", `/chats/${uuid}`);
+      body = { prompt, uuid }
+    } else {
+      const uuid = window.location.pathname.split("/").pop();
+      body = { prompt, uuid }
+    }
+
+    const response = await this.#requestStream(body, csrfToken);
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
 
@@ -55,7 +65,7 @@ export default class extends Controller {
     }
   }
 
-  async #requestStream(prompt, csrfToken) {
+  async #requestStream(body, csrfToken) {
     const response = await fetch("/chats", {
       method: "POST",
       headers: {
@@ -63,7 +73,7 @@ export default class extends Controller {
         "X-CSRF-Token": csrfToken,
         "Accept": "text/event-stream",
       },
-      body: JSON.stringify({ prompt })  
+      body: JSON.stringify(body)
     });
 
     return response;

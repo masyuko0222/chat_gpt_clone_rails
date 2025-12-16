@@ -3,6 +3,12 @@ class ChatsController < ApplicationController
   def index
   end
 
+  def show
+    @chat = Current.session.user.chats.find_by!(uuid: params[:uuid])
+
+    render template: "chats/index"
+  end
+
   def create
     set_streaming_headers
     sse = SSE.new(response.stream, event: "message")
@@ -12,7 +18,19 @@ class ChatsController < ApplicationController
     )
 
     begin
-      stream_chat_response(client, sse)
+      content = stream_chat_response(client, sse)
+      chat = Chat.find_or_initialize_by(uuid: params[:uuid]) do |chat|
+        chat.user = Current.session.user
+      end
+
+      if chat.user != Current.session.user
+        raise "User mismatch"
+      end
+      chat.messages.build(role: :user, content: params[:prompt])
+      chat.messages.build(role: :assistant, content: content)
+      chat.save!
+    rescue ActiveRecord::RecordInvalid => e
+      Rails.logger.error("Failed to create chat: #{e.message}")
     ensure
       sse.close
     end
@@ -26,15 +44,21 @@ class ChatsController < ApplicationController
   end
 
   def stream_chat_response(client, sse)
+    full_content = ""
+
     client.chat(
       parameters: {
         model: "gemini-2.0-flash",
         messages: [ { role: "user", content: params[:prompt] } ],
         stream: proc do |chunk|
           content = chunk.dig("choices", 0, "delta", "content")
-          sse.write({ message: content }) if content
+          if content
+            sse.write({ message: content })
+            full_content += content
+          end
         end
       },
     )
+    full_content
   end
 end
