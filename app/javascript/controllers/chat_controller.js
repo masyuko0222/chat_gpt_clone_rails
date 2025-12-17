@@ -40,12 +40,16 @@ export default class extends Controller {
     const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content");
 
     let body = { prompt }
+    let uuid;
+    let isNewRecord = false;
+
     if (window.location.pathname === "/" || window.location.pathname === "/chats/") {
-      const uuid = crypto.randomUUID();
+      uuid = crypto.randomUUID();
       window.history.replaceState({}, "", `/chats/${uuid}`);
       body = { prompt, uuid }
+      isNewRecord = true;
     } else {
-      const uuid = window.location.pathname.split("/").pop();
+      uuid = window.location.pathname.split("/").pop();
       body = { prompt, uuid }
     }
 
@@ -58,7 +62,20 @@ export default class extends Controller {
     while (true) {
       const { done, value } = await reader.read();
 
-      if (done) break;
+      if (done) {
+        if (isNewRecord) {
+          fetch(`/chats/${uuid}/`, {
+            headers: {
+              "X-CSRF-Token": csrfToken,
+              "Accept": "text/vnd.turbo-stream.html",
+            },
+          }).then(response => response.text())
+            .then(html => {
+              Turbo.renderStreamMessage(html);
+            });
+        }
+        break;
+      }
       if (!value) continue;
 
       this.#addAssistantMessage(value, decoder);
